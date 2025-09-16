@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const ctx = canvas.getContext('2d');
 
     const weatherCache = new Map();
-	let wakeLock = null;
+    let wakeLock = null;
 
     let currentScale = 1;
     let targetScale = 1;
@@ -117,6 +117,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let particles = [];
     const particleCount = 23;
     const maxLineDistance = 20;
+    
+    const maxLineDistanceSq = maxLineDistance * maxLineDistance;
 
     function createParticles() {
         particles = [];
@@ -187,11 +189,12 @@ document.addEventListener('DOMContentLoaded', () => {
             for (let j = i; j < particles.length; j++) {
                 const dx = particles[i].x - particles[j].x;
                 const dy = particles[i].y - particles[j].y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
+                const distSq = dx * dx + dy * dy; 
 
-                if (distance < maxLineDistance) {
+                if (distSq < maxLineDistanceSq) {
                     ctx.moveTo(particles[i].x, particles[i].y);
                     ctx.lineTo(particles[j].x, particles[j].y);
+                    const distance = Math.sqrt(distSq);
                     ctx.strokeStyle = `rgba(248, 213, 104, ${(1 - distance / maxLineDistance) * 0.4})`;
                 }
             }
