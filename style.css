@@ -1,0 +1,146 @@
+:root {
+    --primary-color: #E52521; 
+    --accent-color: #F8D568;  
+    --background-color: #100505; 
+	--glow-color: rgba(255, 0, 0, 0.7);
+
+}
+
+body {
+    background-color: var(--background-color);
+    color: var(--accent-color);
+    font-family: 'Share Tech Mono', monospace;
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* Prevent scrollbars */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.hud-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    max-width: 450px;
+    max-height: 900px;
+    border: 1px solid rgba(229, 37, 33, 0.2); /* Faint red border */
+    box-shadow: 0 0 20px rgba(229, 37, 33, 0.1) inset;
+    
+    transform: rotate(-90deg); 
+}
+
+.display-box {
+    text-shadow: 0 0 5px var(--glow-color), 0 0 10px var(--glow-color);
+}
+
+/* --- Positioning the 4 Displays --- */
+.top-left {
+    position: absolute;
+    top: 3rem;
+    left: 2rem;
+}
+
+#time-display {
+    font-size: 3rem;
+    letter-spacing: 2px;
+}
+
+#date-display {
+    font-size: 1.2rem;
+    margin-left: 1.5rem; /* The off-center part */
+    margin-top: 0.5rem;
+    opacity: 0.8;
+}
+
+.bottom-right {
+    position: absolute;
+    bottom: 3rem;
+    right: 2rem;
+    text-align: right;
+}
+
+#weather-display {
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+
+
+/* --- The Main Pulsing Ring --- */
+.main-ring-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.main-ring {
+    width: 250px;
+    height: 250px;
+    border: 3px solid var(--primary-color); /* Changed to red */
+    border-radius: 50%;
+    box-shadow: 0 0 15px var(--glow-color), 0 0 25px var(--glow-color) inset;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    animation: slow-pulse 5s ease-in-out infinite;
+}
+
+.inner-ring-1, .inner-ring-2 {
+    position: absolute;
+    border-radius: 50%;
+}
+
+.inner-ring-1 {
+    width: 80%;
+    height: 80%;
+    border: 1px dashed var(--accent-color); /* Changed to gold accent */
+    opacity: 0.7;
+    animation: rotate-cw 20s linear infinite;
+}
+
+.inner-ring-2 {
+    width: 60%;
+    height: 60%;
+    border: 1px solid var(--primary-color); /* Kept as red */
+    opacity: 0.5;
+    animation: rotate-ccw 15s linear infinite;
+}
+
+
+/* --- Animations --- */
+@keyframes slow-pulse {
+    0% { transform: scale(0.98); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(0.98); }
+}
+
+@keyframes rotate-cw {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes rotate-ccw {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(-360deg); }
+}
+
+
+/* --- Scanline --- */
+.scanline {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3px; 
+    height: 100%;
+    background: linear-gradient(to right, rgba(255, 0, 0, 0), rgba(255, 0, 0, 0.4), rgba(255, 0, 0, 0));
+    animation: scan 8s linear infinite;
+    opacity: 0.8;
+}
+
+@keyframes scan {
+    0% { left: -5%; }
+    100% { left: 105%; }
+}

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sci-Fi HUD</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div class="hud-container">
+
+        <div class="top-left">
+            <div id="time-display" class="display-box">--:--:--</div>
+            <div id="date-display" class="display-box">----------</div>
+        </div>
+
+        <div class="main-ring-container">
+            <div class="main-ring">
+                <div class="inner-ring-1"></div>
+                <div class="inner-ring-2"></div>
+            </div>
+        </div>
+
+        <div class="bottom-right">
+            <div id="weather-display" class="display-box">Fetching weather...</div>
+        </div>
+        
+    </div>
+
+    <div class="scanline"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
