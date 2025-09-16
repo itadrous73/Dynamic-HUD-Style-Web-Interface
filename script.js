@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentScale = 1;
     let targetScale = 1;
-    const easing = 0.03;
+    const easing = 0.06;
 
     const minScale = 0.8;
     const maxScale = 1.5;
@@ -19,16 +19,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateTimeAndDate() {
         const now = new Date();
         
-        let hours = now.getHours();
+        // A more concise way to format 12-hour time
+        const hours = String(now.getHours() % 12 || 12).padStart(2, '0');
         const minutes = String(now.getMinutes()).padStart(2, '0');
         const seconds = String(now.getSeconds()).padStart(2, '0');
-
-        hours = hours % 12;
-        hours = hours ? hours : 12; 
         
-        const hoursStr = String(hours).padStart(2, '0');
-        
-        timeDisplay.textContent = `${hoursStr}:${minutes}:${seconds}`;
+        timeDisplay.textContent = `${hours}:${minutes}:${seconds}`;
         
         const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
         dateDisplay.textContent = now.toLocaleDateString('en-US', options);
@@ -113,24 +109,40 @@ document.addEventListener('DOMContentLoaded', () => {
     const ringLineWidth = 1.5;
     const center = { x: canvasSize / 2, y: canvasSize / 2 };
     const radius = (canvasSize / 2) - (ringLineWidth / 2);
+    const radiusSq = radius * radius;
 
     let particles = [];
     const particleCount = 23;
     const maxLineDistance = 20;
     const maxLineDistanceSq = maxLineDistance * maxLineDistance;
     
-    let connectedParticles = [];
+    const connectionStates = new Map();
+    const FADE_EASING = 0.05;
 
     function updateConnections() {
-        connectedParticles = [];
+        for (const state of connectionStates.values()) {
+            state.targetOpacity = 0;
+        }
+
         for (let i = 0; i < particles.length; i++) {
             for (let j = i + 1; j < particles.length; j++) {
-                const dx = particles[i].x - particles[j].x;
-                const dy = particles[i].y - particles[j].y;
+                const p1 = particles[i];
+                const p2 = particles[j];
+                const dx = p1.x - p2.x;
+                const dy = p1.y - p2.y;
                 const distSq = dx * dx + dy * dy;
 
                 if (distSq < maxLineDistanceSq) {
-                    connectedParticles.push({ p1: i, p2: j });
+                    const key = i < j ? `${i}-${j}` : `${j}-${i}`;
+
+                    if (connectionStates.has(key)) {
+                        connectionStates.get(key).targetOpacity = 1;
+                    } else {
+                        connectionStates.set(key, {
+                            currentOpacity: 0,
+                            targetOpacity: 1
+                        });
+                    }
                 }
             }
         }
@@ -155,32 +167,35 @@ document.addEventListener('DOMContentLoaded', () => {
     function animateParticles() {
         ctx.clearRect(0, 0, canvasSize, canvasSize);
 
-        particles.forEach(p => {
-            p.x += p.vx;
-            p.y += p.vy;
-
-            const distFromCenter = Math.sqrt((p.x - center.x)**2 + (p.y - center.y)**2);
-            if (distFromCenter + p.size > radius) { 
-                p.vx *= -1;
-                p.vy *= -1;
-                p.x += p.vx; 
-                p.y += p.vy;
-            }
-        });
-
+        // Draw outer ring
         ctx.beginPath();
         ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
         ctx.strokeStyle = 'rgba(248, 213, 104, 1.0)';
         ctx.lineWidth = ringLineWidth;
         ctx.stroke();
         
+        // Combined loop for updating particle positions and drawing their lines to the edge
         particles.forEach(p => {
-            const distFromCenter = Math.sqrt((p.x - center.x)**2 + (p.y - center.y)**2);
+            p.x += p.vx;
+            p.y += p.vy;
+
             const vecX = p.x - center.x;
             const vecY = p.y - center.y;
+            const distSq = vecX * vecX + vecY * vecY;
+
+            // Use squared distance for collision check to avoid sqrt()
+            if (distSq > radiusSq) { 
+                p.vx *= -1;
+                p.vy *= -1;
+                p.x += p.vx; 
+                p.y += p.vy;
+            }
+
+            // Draw the line to the edge (we only need sqrt() here now)
+            const distFromCenter = Math.sqrt(distSq);
             const ringX = center.x + (vecX / distFromCenter) * radius;
             const ringY = center.y + (vecY / distFromCenter) * radius;
-            const opacity = (distFromCenter / radius) * 1.0;
+            const opacity = distFromCenter / radius;
             
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
@@ -190,6 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.stroke();
         });
         
+        // Efficiently draw all particles in one go
         ctx.beginPath();
         particles.forEach(p => {
             ctx.moveTo(p.x + p.size, p.y);
@@ -198,29 +214,43 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fillStyle = '#F8D568';
         ctx.fill();
 
-        connectedParticles.forEach(pair => {
-            const p1 = particles[pair.p1];
-            const p2 = particles[pair.p2];
+        // Iterate through connections to update and draw them
+        connectionStates.forEach((state, key) => {
+            state.currentOpacity += (state.targetOpacity - state.currentOpacity) * FADE_EASING;
+
+            if (state.targetOpacity === 0 && state.currentOpacity < 0.01) {
+                connectionStates.delete(key);
+                return;
+            }
+
+            const [i, j] = key.split('-').map(Number);
+            const p1 = particles[i];
+            const p2 = particles[j];
             
+            if (!p1 || !p2) {
+                connectionStates.delete(key);
+                return;
+            }
+
+            // OPTIMIZATION: Calculate opacity using squared distance to avoid sqrt().
             const dx = p1.x - p2.x;
             const dy = p1.y - p2.y;
             const distSq = dx * dx + dy * dy;
+            const distanceOpacity = Math.max(0, (1 - distSq / maxLineDistanceSq));
 
-            if (distSq < maxLineDistanceSq) {
+            const finalOpacity = state.currentOpacity * distanceOpacity * 0.9;
+            
+            if (finalOpacity > 0.01) {
                 ctx.beginPath();
                 ctx.moveTo(p1.x, p1.y);
                 ctx.lineTo(p2.x, p2.y);
-                
-                const distance = Math.sqrt(distSq);
-                const opacity = (1 - distance / maxLineDistance) * 0.9;
-
-                ctx.strokeStyle = `rgba(248, 213, 104, ${opacity})`;
+                ctx.strokeStyle = `rgba(248, 213, 104, ${finalOpacity})`;
                 ctx.lineWidth = 0.5;
-                
                 ctx.stroke();
             }
         });
 
+        // Animate canvas scale
         if (Math.random() < 0.01) {
             const randomBias = Math.max(Math.random(), Math.random());
             targetScale = minScale + (maxScale - minScale) * randomBias;
@@ -230,21 +260,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
         requestAnimationFrame(animateParticles);
     }
-	
-	const toggleWakeLock = async () => {
-		if (!('wakeLock' in navigator)) return;
-		try {
-			if (document.fullscreenElement) {
-				wakeLock = await navigator.wakeLock.request('screen');
-			} else if (wakeLock) {
-				await wakeLock.release();
-				wakeLock = null;
-			}
-		} catch (err) {
-			console.error(`Wake Lock error: ${err.name}, ${err.message}`);
-		}
-	};
+    
+    const toggleWakeLock = async () => {
+        if (!('wakeLock' in navigator)) return;
+        try {
+            if (document.fullscreenElement) {
+                wakeLock = await navigator.wakeLock.request('screen');
+            } else if (wakeLock) {
+                await wakeLock.release();
+                wakeLock = null;
+            }
+        } catch (err) {
+            console.error(`Wake Lock error: ${err.name}, ${err.message}`);
+        }
+    };
 
+    // --- Initialization ---
     updateTimeAndDate();
     setInterval(updateTimeAndDate, 1000);
 
@@ -254,7 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
     createParticles();
     
     updateConnections();
-    setInterval(updateConnections, 1000);
+    setInterval(updateConnections, 4000);
     
     animateParticles();
 
@@ -263,6 +294,6 @@ document.addEventListener('DOMContentLoaded', () => {
             document.documentElement.requestFullscreen();
         }
     });
-	document.addEventListener('fullscreenchange', toggleWakeLock);
-	document.addEventListener('visibilitychange', toggleWakeLock);
+    document.addEventListener('fullscreenchange', toggleWakeLock);
+    document.addEventListener('visibilitychange', toggleWakeLock);
 });
