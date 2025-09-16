@@ -58,4 +58,15 @@ document.addEventListener('DOMContentLoaded', () => {
     setRandomWeatherData();
     // And then update the weather every 10 seconds (10000 milliseconds)
     setInterval(setRandomWeatherData, 10000);
+
+
+    // --- Fullscreen on Click ---
+
+    // Add a click event listener to the entire page
+    document.documentElement.addEventListener('click', () => {
+        if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen();
+        }
+    });
+
 });
