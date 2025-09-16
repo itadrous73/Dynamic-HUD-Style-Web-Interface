@@ -117,8 +117,24 @@ document.addEventListener('DOMContentLoaded', () => {
     let particles = [];
     const particleCount = 23;
     const maxLineDistance = 20;
-    
     const maxLineDistanceSq = maxLineDistance * maxLineDistance;
+    
+    let connectedParticles = [];
+
+    function updateConnections() {
+        connectedParticles = [];
+        for (let i = 0; i < particles.length; i++) {
+            for (let j = i + 1; j < particles.length; j++) {
+                const dx = particles[i].x - particles[j].x;
+                const dy = particles[i].y - particles[j].y;
+                const distSq = dx * dx + dy * dy;
+
+                if (distSq < maxLineDistanceSq) {
+                    connectedParticles.push({ p1: i, p2: j });
+                }
+            }
+        }
+    }
 
     function createParticles() {
         particles = [];
@@ -154,62 +170,62 @@ document.addEventListener('DOMContentLoaded', () => {
 
         ctx.beginPath();
         ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(248, 213, 104, 0.7)';
+        ctx.strokeStyle = 'rgba(248, 213, 104, 1.0)';
         ctx.lineWidth = ringLineWidth;
-        ctx.shadowColor = 'rgba(248, 213, 104, 0.5)';
-        ctx.shadowBlur = 5;
         ctx.stroke();
         
         particles.forEach(p => {
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            ctx.fillStyle = '#F8D568';
-            ctx.shadowColor = 'rgba(255, 0, 0, 0.7)';
-            ctx.shadowBlur = 5;
-            ctx.fill();
-
             const distFromCenter = Math.sqrt((p.x - center.x)**2 + (p.y - center.y)**2);
             const vecX = p.x - center.x;
             const vecY = p.y - center.y;
             const ringX = center.x + (vecX / distFromCenter) * radius;
             const ringY = center.y + (vecY / distFromCenter) * radius;
-            const opacity = (distFromCenter / radius) * 0.8;
-
+            const opacity = (distFromCenter / radius) * 1.0;
+            
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(ringX, ringY);
             ctx.strokeStyle = `rgba(248, 213, 104, ${opacity})`;
             ctx.lineWidth = 0.5;
-            ctx.shadowBlur = 0;
             ctx.stroke();
         });
-
+        
         ctx.beginPath();
-        for (let i = 0; i < particles.length; i++) {
-            for (let j = i; j < particles.length; j++) {
-                const dx = particles[i].x - particles[j].x;
-                const dy = particles[i].y - particles[j].y;
-                const distSq = dx * dx + dy * dy; 
+        particles.forEach(p => {
+            ctx.moveTo(p.x + p.size, p.y);
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        });
+        ctx.fillStyle = '#F8D568';
+        ctx.fill();
 
-                if (distSq < maxLineDistanceSq) {
-                    ctx.moveTo(particles[i].x, particles[i].y);
-                    ctx.lineTo(particles[j].x, particles[j].y);
-                    const distance = Math.sqrt(distSq);
-                    ctx.strokeStyle = `rgba(248, 213, 104, ${(1 - distance / maxLineDistance) * 0.4})`;
-                }
+        connectedParticles.forEach(pair => {
+            const p1 = particles[pair.p1];
+            const p2 = particles[pair.p2];
+            
+            const dx = p1.x - p2.x;
+            const dy = p1.y - p2.y;
+            const distSq = dx * dx + dy * dy;
+
+            if (distSq < maxLineDistanceSq) {
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                
+                const distance = Math.sqrt(distSq);
+                const opacity = (1 - distance / maxLineDistance) * 0.9;
+
+                ctx.strokeStyle = `rgba(248, 213, 104, ${opacity})`;
+                ctx.lineWidth = 0.5;
+                
+                ctx.stroke();
             }
-        }
-        ctx.lineWidth = 0.5;
-        ctx.shadowBlur = 0;
-        ctx.stroke();
+        });
 
         if (Math.random() < 0.01) {
             const randomBias = Math.max(Math.random(), Math.random());
             targetScale = minScale + (maxScale - minScale) * randomBias;
         }
-
         currentScale += (targetScale - currentScale) * easing;
-
         canvas.style.transform = `translate(-50%, -50%) scale(${currentScale})`;
 
         requestAnimationFrame(animateParticles);
@@ -236,6 +252,10 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(fetchAndDisplayWeather, 10000); 
 
     createParticles();
+    
+    updateConnections();
+    setInterval(updateConnections, 1000);
+    
     animateParticles();
 
     document.documentElement.addEventListener('click', () => {
