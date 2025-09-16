@@ -1,72 +1,223 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- Element References ---
     const timeDisplay = document.getElementById('time-display');
     const dateDisplay = document.getElementById('date-display');
     const weatherDisplay = document.getElementById('weather-display');
+    const canvas = document.getElementById('particle-canvas');
+    const ctx = canvas.getContext('2d');
 
-    // --- Time and Date Function ---
+    const weatherCache = new Map();
+
+    let animTime = 0;
+    const scaleSpeed = 0.02;
+    const minScale = 0.7;
+    const maxScale = 1.2;
+
     function updateTimeAndDate() {
         const now = new Date();
-
-        // Format Time (HH:MM:SS)
-        const hours = String(now.getHours()).padStart(2, '0');
+        
+        let hours = now.getHours();
         const minutes = String(now.getMinutes()).padStart(2, '0');
         const seconds = String(now.getSeconds()).padStart(2, '0');
-        timeDisplay.textContent = `${hours}:${minutes}:${seconds}`;
 
-        // Format Date
+        hours = hours % 12;
+        hours = hours ? hours : 12; 
+        
+        const hoursStr = String(hours).padStart(2, '0');
+        
+        timeDisplay.textContent = `${hoursStr}:${minutes}:${seconds}`;
+        
         const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-        dateDisplay.textContent = now.toLocaleDateString('en-US', options);
-    }
-
-    // --- Random Weather Function ---
-    function setRandomWeatherData() {
-        const descriptions = [
-            'Ion Storm Approaching',
-            'Clear Skies',
-            'High Solar Winds',
-            'Meteor Shower',
-            'Atmospheric Anomaly',
-            'Sub-Zero Anomaly'
-        ];
-        const locations = [
-            'Sector 7-G',
-            'Mars Colony',
-            'Neo-Amsterdam',
-            'Alpha Centauri',
-            'Titan Outpost'
-        ];
-
-        // Generate random data
-        const randomTemp = Math.floor(Math.random() * 65) - 20; // Temp between -20 and 45
-        const randomDesc = descriptions[Math.floor(Math.random() * descriptions.length)];
-        const randomLoc = locations[Math.floor(Math.random() * locations.length)];
-
-        // Format and display the random report
-        weatherDisplay.innerHTML = `${randomTemp}°C, ${randomDesc}<br>Location: ${randomLoc}`;
+        dateDisplay.textContent = now.toLocaleDateString('de-DE', options);
     }
 
 
-    // --- Initial Calls & Intervals ---
+	function getSciFiDescription(code, temp) {
+        if (temp <= 32) return 'Sub-Zero Anomaly'; // Freezing temps
 
-    // Update time immediately and then every second
+        switch (code) {
+            case 0: case 1: return 'No Anomalys Detected'; // Clear
+            case 2: case 3: return 'High Cloud Density'; // Cloudy
+            case 45: case 48: return 'Low Visibility'; // Fog
+            case 51: case 53: case 55:
+            case 61: case 63: case 65:
+            case 80: case 81: case 82: return 'Exo-Precipitation'; // Rain
+            case 66: case 67: return 'Glacial Rain Event'; // Freezing Rain
+            case 71: case 73: case 75:
+            case 85: case 86: return 'Crystalline Fall Detected'; // Snow
+            case 95: case 96: case 99: return 'Ion Storm Approaching'; // Thunderstorm
+            default: return 'Sensor Data Inconclusive';
+        }
+    }
+
+    async function fetchAndDisplayWeather() {
+		const locations = [
+            { codename: 'Aegyptus Protectorate', lat: 30.04, lon: 31.23 },      // Egypt
+            { codename: 'Mandate-Texan', lat: 30.26, lon: -97.74 },          // Texas
+            { codename: 'Mi-ami Arcology', lat: 25.76, lon: -80.19 },      // Miami
+            { codename: 'Neo-To-kyo', lat: 35.67, lon: 139.65 },           // Tokyo
+            { codename: 'Moscow Citadel', lat: 55.75, lon: 37.61 },            // Moscow
+            { codename: 'Zone Alpha-Sydney', lat: -33.86, lon: 151.20 },       // Sydney
+            { codename: 'London Base 2A', lat: 51.50, lon: -0.12 },       // London
+            { codename: 'Rio de-Janeiro', lat: -22.90, lon: -43.17 }    // Rio de Janeiro
+        ];
+
+        const randomLocation = locations[Math.floor(Math.random() * locations.length)];
+
+        if (weatherCache.has(randomLocation.codename)) {
+            if (Math.random() < 0.8) {
+                const cachedData = weatherCache.get(randomLocation.codename);
+                weatherDisplay.innerHTML = `${cachedData.temperature}°F, ${cachedData.description}<br>Location: ${randomLocation.codename}`;
+                return;
+            }
+        }
+
+        const latitude = randomLocation.lat;
+        const longitude = randomLocation.lon;
+        
+        const apiUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&temperature_unit=fahrenheit`;
+
+        try {
+            const response = await fetch(apiUrl);
+            if (!response.ok) throw new Error('Signal Lost');
+            
+            const data = await response.json();
+            const temperature = data.current.temperature_2m;
+            const weatherCode = data.current.weather_code;
+            const description = getSciFiDescription(weatherCode, temperature);
+            
+            const dataToCache = {
+                temperature: temperature,
+                description: description
+            };
+            weatherCache.set(randomLocation.codename, dataToCache);
+
+            weatherDisplay.innerHTML = `${temperature}°F, ${description}<br>Location: ${randomLocation.codename}`;
+
+        } catch (error) {
+            console.error('Weather uplink failed:', error);
+            weatherDisplay.innerHTML = 'WEATHER DATA CORRUPTED<br>Location: UNKNOWN';
+        }
+    }
+
+    const canvasSize = 62.5;
+    const scaleFactor = 3; 
+    
+    canvas.width = canvasSize * scaleFactor;
+    canvas.height = canvasSize * scaleFactor;
+    ctx.scale(scaleFactor, scaleFactor);
+
+    const ringLineWidth = 1.5;
+    const center = { x: canvasSize / 2, y: canvasSize / 2 };
+    const radius = (canvasSize / 2) - (ringLineWidth / 2);
+
+    let particles = [];
+    const particleCount = 23;
+    const maxLineDistance = 20;
+
+    function createParticles() {
+        particles = [];
+        for (let i = 0; i < particleCount; i++) {
+            const angle = Math.random() * 2 * Math.PI;
+            const r = radius * Math.sqrt(Math.random()); 
+
+            particles.push({
+                x: center.x + r * Math.cos(angle),
+                y: center.y + r * Math.sin(angle),
+                vx: (Math.random() - 0.5) * 0.2,
+                vy: (Math.random() - 0.5) * 0.2,
+                size: Math.random() * .1 + 0.5
+            });
+        }
+    }
+
+    function animateParticles() {
+        ctx.clearRect(0, 0, canvasSize, canvasSize);
+
+        particles.forEach(p => {
+            p.x += p.vx;
+            p.y += p.vy;
+
+            const distFromCenter = Math.sqrt((p.x - center.x)**2 + (p.y - center.y)**2);
+            if (distFromCenter + p.size > radius) { 
+                p.vx *= -1;
+                p.vy *= -1;
+                p.x += p.vx; 
+                p.y += p.vy;
+            }
+        });
+
+        ctx.beginPath();
+        ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(248, 213, 104, 0.7)';
+        ctx.lineWidth = ringLineWidth;
+        ctx.shadowColor = 'rgba(248, 213, 104, 0.5)';
+        ctx.shadowBlur = 5;
+        ctx.stroke();
+        
+        particles.forEach(p => {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fillStyle = '#F8D568';
+            ctx.shadowColor = 'rgba(255, 0, 0, 0.7)';
+            ctx.shadowBlur = 5;
+            ctx.fill();
+
+            const distFromCenter = Math.sqrt((p.x - center.x)**2 + (p.y - center.y)**2);
+            const vecX = p.x - center.x;
+            const vecY = p.y - center.y;
+            const ringX = center.x + (vecX / distFromCenter) * radius;
+            const ringY = center.y + (vecY / distFromCenter) * radius;
+            const opacity = (distFromCenter / radius) * 0.8;
+
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(ringX, ringY);
+            ctx.strokeStyle = `rgba(248, 213, 104, ${opacity})`;
+            ctx.lineWidth = 0.5;
+            ctx.shadowBlur = 0;
+            ctx.stroke();
+        });
+
+        ctx.beginPath();
+        for (let i = 0; i < particles.length; i++) {
+            for (let j = i; j < particles.length; j++) {
+                const dx = particles[i].x - particles[j].x;
+                const dy = particles[i].y - particles[j].y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < maxLineDistance) {
+                    ctx.moveTo(particles[i].x, particles[i].y);
+                    ctx.lineTo(particles[j].x, particles[j].y);
+                    ctx.strokeStyle = `rgba(248, 213, 104, ${(1 - distance / maxLineDistance) * 0.4})`;
+                }
+            }
+        }
+        ctx.lineWidth = 0.5;
+        ctx.shadowBlur = 0;
+        ctx.stroke();
+
+        animTime++;
+        const scaleRange = maxScale - minScale;
+        const scaleCenter = minScale + scaleRange / 2;
+        const scale = scaleCenter + (Math.sin(animTime * scaleSpeed) * (scaleRange / 2));
+        canvas.style.transform = `translate(-50%, -50%) scale(${scale})`;
+
+        requestAnimationFrame(animateParticles);
+    }
+
     updateTimeAndDate();
     setInterval(updateTimeAndDate, 1000);
 
-    // Set the random weather data immediately on load
-    setRandomWeatherData();
-    // And then update the weather every 10 seconds (10000 milliseconds)
-    setInterval(setRandomWeatherData, 10000);
+    fetchAndDisplayWeather();
+    setInterval(fetchAndDisplayWeather, 10000); 
 
+    createParticles();
+    animateParticles();
 
-    // --- Fullscreen on Click ---
-
-    // Add a click event listener to the entire page
     document.documentElement.addEventListener('click', () => {
         if (document.documentElement.requestFullscreen) {
             document.documentElement.requestFullscreen();
         }
     });
-
 });
