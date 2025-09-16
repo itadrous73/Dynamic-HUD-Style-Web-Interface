@@ -17,7 +17,7 @@ body {
 }
 
 html {
-    font-size: 20px;
+    font-size: 25px;
 }
 
 .hud-container {
@@ -108,7 +108,7 @@ html {
 
 @keyframes slow-pulse {
     0% { transform: scale(0.8); }  
-    50% { transform: scale(1.07); } 
+    50% { transform: scale(1.2); } 
     100% { transform: scale(0.8); }  
 }
 
