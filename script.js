@@ -7,11 +7,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const ctx = canvas.getContext('2d');
 
     const weatherCache = new Map();
+	let wakeLock = null;
 
-    let animTime = 0;
-    const scaleSpeed = 0.02;
-    const minScale = 0.7;
-    const maxScale = 1.2;
+    let currentScale = 1;
+    let targetScale = 1;
+    const easing = 0.03;
+
+    const minScale = 0.8;
+    const maxScale = 1.5;
 
     function updateTimeAndDate() {
         const now = new Date();
@@ -28,11 +31,11 @@ document.addEventListener('DOMContentLoaded', () => {
         timeDisplay.textContent = `${hoursStr}:${minutes}:${seconds}`;
         
         const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-        dateDisplay.textContent = now.toLocaleDateString('de-DE', options);
+        dateDisplay.textContent = now.toLocaleDateString('en-US', options);
     }
 
 
-	function getSciFiDescription(code, temp) {
+    function getSciFiDescription(code, temp) {
         if (temp <= 32) return 'Sub-Zero Anomaly'; // Freezing temps
 
         switch (code) {
@@ -51,15 +54,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function fetchAndDisplayWeather() {
-		const locations = [
+        const locations = [
             { codename: 'Aegyptus Protectorate', lat: 30.04, lon: 31.23 },      // Egypt
             { codename: 'Mandate-Texan', lat: 30.26, lon: -97.74 },          // Texas
             { codename: 'Mi-ami Arcology', lat: 25.76, lon: -80.19 },      // Miami
             { codename: 'Neo-To-kyo', lat: 35.67, lon: 139.65 },           // Tokyo
-            { codename: 'Moscow Citadel', lat: 55.75, lon: 37.61 },            // Moscow
-            { codename: 'Zone Alpha-Sydney', lat: -33.86, lon: 151.20 },       // Sydney
-            { codename: 'London Base 2A', lat: 51.50, lon: -0.12 },       // London
-            { codename: 'Rio de-Janeiro', lat: -22.90, lon: -43.17 }    // Rio de Janeiro
+            { codename: 'Moscow Citadel', lat: 55.75, lon: 37.61 },           // Moscow
+            { codename: 'Zone Alpha-Sydney', lat: -33.86, lon: 151.20 },      // Sydney
+            { codename: 'London Base 2A', lat: 51.50, lon: -0.12 },        // London
+            { codename: 'Rio de-Janeiro', lat: -22.90, lon: -43.17 }     // Rio de Janeiro
         ];
 
         const randomLocation = locations[Math.floor(Math.random() * locations.length)];
@@ -197,14 +200,31 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.shadowBlur = 0;
         ctx.stroke();
 
-        animTime++;
-        const scaleRange = maxScale - minScale;
-        const scaleCenter = minScale + scaleRange / 2;
-        const scale = scaleCenter + (Math.sin(animTime * scaleSpeed) * (scaleRange / 2));
-        canvas.style.transform = `translate(-50%, -50%) scale(${scale})`;
+        if (Math.random() < 0.01) {
+            const randomBias = Math.max(Math.random(), Math.random());
+            targetScale = minScale + (maxScale - minScale) * randomBias;
+        }
+
+        currentScale += (targetScale - currentScale) * easing;
+
+        canvas.style.transform = `translate(-50%, -50%) scale(${currentScale})`;
 
         requestAnimationFrame(animateParticles);
     }
+	
+	const toggleWakeLock = async () => {
+		if (!('wakeLock' in navigator)) return;
+		try {
+			if (document.fullscreenElement) {
+				wakeLock = await navigator.wakeLock.request('screen');
+			} else if (wakeLock) {
+				await wakeLock.release();
+				wakeLock = null;
+			}
+		} catch (err) {
+			console.error(`Wake Lock error: ${err.name}, ${err.message}`);
+		}
+	};
 
     updateTimeAndDate();
     setInterval(updateTimeAndDate, 1000);
@@ -220,4 +240,6 @@ document.addEventListener('DOMContentLoaded', () => {
             document.documentElement.requestFullscreen();
         }
     });
+	document.addEventListener('fullscreenchange', toggleWakeLock);
+	document.addEventListener('visibilitychange', toggleWakeLock);
 });
