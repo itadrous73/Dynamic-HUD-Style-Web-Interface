@@ -13,13 +13,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let targetScale = 1;
     const easing = 0.06;
 
+    let currentRotation = 0;
+    let targetRotation = 0;
+    const rotationEasing = 0.03;
+
     const minScale = 0.8;
-    const maxScale = 1.5;
+    const maxScale = 2;
 
     function updateTimeAndDate() {
         const now = new Date();
         
-        // A more concise way to format 12-hour time
         const hours = String(now.getHours() % 12 || 12).padStart(2, '0');
         const minutes = String(now.getMinutes()).padStart(2, '0');
         const seconds = String(now.getSeconds()).padStart(2, '0');
@@ -119,6 +122,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const connectionStates = new Map();
     const FADE_EASING = 0.05;
 
+    function periodicUpdates() {
+        updateConnections();
+        
+        if (Math.random() < 0.10) { 
+            const maxSpin = 130 * (Math.PI / 180); 
+
+            if (Math.random() < 0.60) {
+                targetRotation += Math.random() * maxSpin; 
+            } else { 
+                targetRotation -= Math.random() * maxSpin;
+            }
+        }
+    }
+
     function updateConnections() {
         for (const state of connectionStates.values()) {
             state.targetOpacity = 0;
@@ -167,14 +184,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function animateParticles() {
         ctx.clearRect(0, 0, canvasSize, canvasSize);
 
-        // Draw outer ring
         ctx.beginPath();
         ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
         ctx.strokeStyle = 'rgba(248, 213, 104, 1.0)';
         ctx.lineWidth = ringLineWidth;
         ctx.stroke();
         
-        // Combined loop for updating particle positions and drawing their lines to the edge
         particles.forEach(p => {
             p.x += p.vx;
             p.y += p.vy;
@@ -183,7 +198,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const vecY = p.y - center.y;
             const distSq = vecX * vecX + vecY * vecY;
 
-            // Use squared distance for collision check to avoid sqrt()
             if (distSq > radiusSq) { 
                 p.vx *= -1;
                 p.vy *= -1;
@@ -191,7 +205,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 p.y += p.vy;
             }
 
-            // Draw the line to the edge (we only need sqrt() here now)
             const distFromCenter = Math.sqrt(distSq);
             const ringX = center.x + (vecX / distFromCenter) * radius;
             const ringY = center.y + (vecY / distFromCenter) * radius;
@@ -205,7 +218,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.stroke();
         });
         
-        // Efficiently draw all particles in one go
         ctx.beginPath();
         particles.forEach(p => {
             ctx.moveTo(p.x + p.size, p.y);
@@ -214,7 +226,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fillStyle = '#F8D568';
         ctx.fill();
 
-        // Iterate through connections to update and draw them
         connectionStates.forEach((state, key) => {
             state.currentOpacity += (state.targetOpacity - state.currentOpacity) * FADE_EASING;
 
@@ -232,7 +243,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // OPTIMIZATION: Calculate opacity using squared distance to avoid sqrt().
             const dx = p1.x - p2.x;
             const dy = p1.y - p2.y;
             const distSq = dx * dx + dy * dy;
@@ -250,13 +260,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Animate canvas scale
         if (Math.random() < 0.01) {
             const randomBias = Math.max(Math.random(), Math.random());
             targetScale = minScale + (maxScale - minScale) * randomBias;
         }
         currentScale += (targetScale - currentScale) * easing;
-        canvas.style.transform = `translate(-50%, -50%) scale(${currentScale})`;
+
+        currentRotation += (targetRotation - currentRotation) * rotationEasing;
+
+        canvas.style.transform = `translate(-50%, -50%) scale(${currentScale}) rotate(${currentRotation}rad)`;
 
         requestAnimationFrame(animateParticles);
     }
@@ -275,7 +287,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- Initialization ---
     updateTimeAndDate();
     setInterval(updateTimeAndDate, 1000);
 
@@ -284,8 +295,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     createParticles();
     
-    updateConnections();
-    setInterval(updateConnections, 4000);
+    periodicUpdates();
+    setInterval(periodicUpdates, 4000);
     
     animateParticles();
 
