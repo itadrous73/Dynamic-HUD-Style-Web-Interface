@@ -150,3 +150,6 @@ html {
     width: 62.5px;
     height: 62.5px;
 }
+:fullscreen {
+    cursor: none;
+}
